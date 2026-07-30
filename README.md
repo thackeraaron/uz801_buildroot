@@ -39,8 +39,6 @@ sudo ./board/uz801/make_flashable.sh
 Reflash the new firmware (MAKE SURE YOU HAVE A BACKUP):
 
 ```
-
-
 edl e boot
 edl w aboot output/flashable/aboot.mbn
 edl reset
