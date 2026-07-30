@@ -1,0 +1,17 @@
+[connection]
+id=lte
+uuid=3442af20-e651-4983-890d-be66fffd4e17
+type=gsm
+autoconnect=true
+autoconnect-retries=-1
+
+# [gsm]
+# apn=YOUR APN HERE
+
+[ipv4]
+method=auto
+route-metric=100
+
+[ipv6]
+method=auto
+route-metric=100

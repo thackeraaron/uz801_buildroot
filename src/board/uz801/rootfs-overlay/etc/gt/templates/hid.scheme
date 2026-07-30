@@ -1,0 +1,75 @@
+attrs:
+{
+    bcdUSB = 0x200;
+    bDeviceClass = 0x0;
+    bDeviceSubClass = 0x0;
+    bDeviceProtocol = 0x0;
+    bMaxPacketSize0 = 0x40;
+    idVendor = 0x1d6b;
+    idProduct = 0x106;
+    bcdDevice = 0x1;
+};
+
+os_descs:
+{
+    use = 0;
+    qw_sign = "";
+    b_vendor_code = 0x0;
+};
+
+strings = (
+    {
+        lang = 0x409;
+        manufacturer = "Linux";
+        product = "Trustworthy Keyboard";
+        serialnumber = "";
+    }
+);
+
+functions:
+{
+    hid_usb0:
+    {
+        instance = "usb0";
+        type = "hid";
+        attrs:
+        {
+            protocol = 1;
+            subclass = 1;
+            report_length = 8;
+            report_desc = ( 0x5, 0x1, 0x9, 0x6, 0xa1, 0x1, 0x5, 0x7,
+                            0x19, 0xe0, 0x29, 0xe7, 0x15, 0x0, 0x25, 0x1,
+                            0x75, 0x1, 0x95, 0x8, 0x81, 0x2, 0x95, 0x1,
+                            0x75, 0x8, 0x81, 0x3, 0x95, 0x5, 0x75, 0x1,
+                            0x5, 0x8, 0x19, 0x1, 0x29, 0x5, 0x91, 0x2,
+                            0x95, 0x1, 0x75, 0x3, 0x91, 0x3, 0x95, 0x6,
+                            0x75, 0x8, 0x15, 0x0, 0x25, 0x65, 0x5, 0x7,
+                            0x19, 0x0, 0x29, 0x65, 0x81, 0x0, 0xc0 );
+        };
+        os_descs = ();
+    };
+};
+
+configs = (
+    {
+        id = 1;
+        name = "c";
+        attrs:
+        {
+            bmAttributes = 0x80;
+            MaxPower = 0xfa;
+        };
+        strings = (
+            {
+                lang = 0x409;
+                configuration = "HID";
+            }
+        );
+        functions = (
+            {
+                function = "hid_usb0";
+                name = "hid0";
+            }
+        );
+    }
+);

@@ -1,0 +1,42 @@
+#!/bin/sh
+WEBROOT=/srv/kvm
+PIDFILE=/var/run/kvm-httpd.pid
+
+ipt_add() {
+    # Allows wlan0, usb0 and wg0 to the HTTP server and drop all other traffic
+    iptables -I INPUT -p tcp --dport 80 -i wlan0 -j ACCEPT
+    iptables -I INPUT -p tcp --dport 80 -i usb0 -j ACCEPT
+    iptables -I INPUT -p tcp --dport 80 -i wg0 -j ACCEPT
+    iptables -I INPUT -p tcp --dport 80 -j DROP
+}
+
+ipt_del() {
+    iptables -D INPUT -p tcp --dport 80 -i usb0 -j ACCEPT 2>/dev/null || true
+    iptables -D INPUT -p tcp --dport 80 -i wg0 -j ACCEPT 2>/dev/null || true
+    iptables -D INPUT -p tcp --dport 80 -i wlan0 -j ACCEPT 2>/dev/null || true
+    iptables -D INPUT -p tcp --dport 80 -j DROP           2>/dev/null || true
+}
+
+case "$1" in
+    start)
+        httpd -f -p 80 -h "$WEBROOT" &
+        echo $! > "$PIDFILE"
+        ipt_add
+        echo "OK"
+        ;;
+    stop)
+        [ -f "$PIDFILE" ] && kill "$(cat "$PIDFILE")" 2>/dev/null || true
+        rm -f "$PIDFILE"
+        ipt_del
+        echo "OK"
+        ;;
+    restart)
+        $0 stop
+        sleep 1
+        $0 start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+        ;;
+esac

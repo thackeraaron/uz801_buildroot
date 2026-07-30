@@ -1,0 +1,100 @@
+#!/bin/sh
+
+BASEDIR=/lib/firmware/msm-firmware-loader
+
+mount -o mode=755,nodev,noexec,nosuid -t tmpfs none "$BASEDIR"
+
+mkdir -p "$BASEDIR/mnt"
+mkdir -p "$BASEDIR/target"
+
+modem_dev=""
+persist_dev=""
+
+for part in /sys/block/mmcblk*/mmcblk*p*; do
+    DEVNAME="$(grep DEVNAME "$part/uevent" 2>/dev/null | sed 's/DEVNAME=//g')"
+    PARTNAME="$(grep PARTNAME "$part/uevent" 2>/dev/null | sed 's/PARTNAME=//g')"
+    [ -z "$DEVNAME" ] && continue
+    case "$PARTNAME" in
+        modem)   modem_dev="/dev/$DEVNAME" ;;
+        persist) persist_dev="/dev/$DEVNAME" ;;
+    esac
+done
+
+if [ -z "$modem_dev" ] || [ -z "$persist_dev" ]; then
+    while read -r major minor blocks name; do
+        case "$name" in mmcblk*p*) ;; *) continue ;; esac
+        dev="/dev/$name"
+        case "$blocks" in
+            65536)
+                [ -z "$modem_dev" ] && modem_dev="$dev"
+                ;;
+            32768)
+                [ -z "$persist_dev" ] && persist_dev="$dev"
+                ;;
+        esac
+    done < /proc/partitions
+fi
+
+if [ -n "$modem_dev" ]; then
+    mkdir -p "$BASEDIR/mnt/modem"
+    mount -o ro,nodev,noexec,nosuid "$modem_dev" "$BASEDIR/mnt/modem" 2>/dev/null || \
+    mount -o ro,nodev,noexec,nosuid -t vfat "$modem_dev" "$BASEDIR/mnt/modem" 2>/dev/null || true
+fi
+
+if [ -n "$persist_dev" ]; then
+    mkdir -p "$BASEDIR/mnt/persist"
+    mount -o ro,nodev,noexec,nosuid "$persist_dev" "$BASEDIR/mnt/persist" 2>/dev/null || \
+    mount -o ro,nodev,noexec,nosuid -t vfat "$persist_dev" "$BASEDIR/mnt/persist" 2>/dev/null || true
+fi
+
+for blob in "$BASEDIR/mnt/modem/image/"*; do
+    [ -f "$blob" ] || continue
+    fname="$(basename "$blob")"
+    [ -e "$BASEDIR/target/$fname" ] && continue
+    ln -sf "$blob" "$BASEDIR/target/$fname" 2>/dev/null || true
+done
+
+if [ -f "$BASEDIR/mnt/persist/WCNSS_qcom_wlan_nv.bin" ]; then
+    ln -sf "$BASEDIR/mnt/persist/WCNSS_qcom_wlan_nv.bin" \
+        "$BASEDIR/target/WCNSS_qcom_wlan_nv.bin" 2>/dev/null || true
+fi
+
+mkdir -p "$BASEDIR/target/wlan/prima"
+if [ -h "$BASEDIR/target/WCNSS_qcom_wlan_nv.bin" ]; then
+    ln -sf "$BASEDIR/target/WCNSS_qcom_wlan_nv.bin" \
+        "$BASEDIR/target/wlan/prima/WCNSS_qcom_wlan_nv.bin" 2>/dev/null || true
+fi
+
+for cfg_src in \
+    "$BASEDIR/target/WCNSS_qcom_cfg.ini" \
+    "$BASEDIR/mnt/modem/image/wlan/prima/WCNSS_qcom_cfg.ini" \
+    "$BASEDIR/mnt/persist/WCNSS_qcom_cfg.ini"; do
+    [ -f "$cfg_src" ] || continue
+    ln -sf "$cfg_src" "$BASEDIR/target/wlan/prima/WCNSS_qcom_cfg.ini" 2>/dev/null || true
+    break
+done
+
+find "$BASEDIR/target/" -maxdepth 1 -name '*.mdt' 2>/dev/null | while read f; do
+    ln -sf "$f" "${f%.mdt}.mbn" 2>/dev/null || true
+done
+find "$BASEDIR/target/" -maxdepth 1 -name '*.mbn' 2>/dev/null | while read f; do
+    [ -e "${f%.mbn}.mdt" ] || ln -sf "$f" "${f%.mbn}.mdt" 2>/dev/null || true
+done
+
+printf "%s" "$BASEDIR/target" > /sys/module/firmware_class/parameters/path
+
+mkdir -p /dev/disk/by-partlabel
+for part in /sys/block/mmcblk*/mmcblk*p*; do
+    DEVNAME="$(grep DEVNAME "$part/uevent" 2>/dev/null | sed 's/DEVNAME=//g')"
+    PARTNAME="$(grep PARTNAME "$part/uevent" 2>/dev/null | sed 's/PARTNAME=//g')"
+    [ -n "$PARTNAME" ] && [ -n "$DEVNAME" ] && \
+        ln -sf "/dev/$DEVNAME" "/dev/disk/by-partlabel/$PARTNAME" 2>/dev/null || true
+done
+
+[ -e /dev/disk/by-partlabel/modemst1 ] || \
+    ln -sf /dev/mmcblk0p4 /dev/disk/by-partlabel/modemst1 2>/dev/null || true
+[ -e /dev/disk/by-partlabel/modemst2 ] || \
+    ln -sf /dev/mmcblk0p5 /dev/disk/by-partlabel/modemst2 2>/dev/null || true
+
+echo "modem=$modem_dev persist=$persist_dev"
+echo "msm-firmware-loader: done"

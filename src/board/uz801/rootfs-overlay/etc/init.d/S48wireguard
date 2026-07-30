@@ -1,0 +1,65 @@
+#!/bin/sh
+# quick Wireguard script to load /etc/wireguard/wg0.conf like wg-quick
+
+CONF=/etc/wireguard/wg0.conf
+IF=wg0
+
+iface_val() {
+    awk -v k="$1" '
+        /^\[Interface\]/{f=1;next} /^\[/{f=0}
+        f && $0 ~ "^[[:space:]]*"k"[[:space:]]*=" {
+            sub(/^[^=]*=[[:space:]]*/,""); gsub(/[[:space:]]*$/,""); print; exit
+        }
+    ' "$CONF"
+}
+
+start() {
+    [ -f "$CONF" ] || { echo "missing $CONF"; exit 1; }
+
+    modprobe wireguard 2>/dev/null || true
+
+    ADDR=$(iface_val Address)
+    PRIVKEY=$(iface_val PrivateKey)
+    PORT=$(iface_val ListenPort)
+
+    ip link add "$IF" type wireguard || { echo "$IF: failed to create interface"; exit 1; }
+
+    printf '%s' "$PRIVKEY" | wg set "$IF" private-key /dev/stdin
+    [ -n "$PORT" ] && wg set "$IF" listen-port "$PORT"
+
+    TMPCONF=$(mktemp)
+    awk '/^\[Peer\]/{p=1} /^\[Interface\]/{p=0} p{print}' "$CONF" > "$TMPCONF"
+    wg addconf "$IF" "$TMPCONF"
+    rm -f "$TMPCONF"
+
+    ip addr add "$ADDR" dev "$IF"
+    ip link set up dev "$IF"
+
+    awk '
+        /^\[Peer\]/{p=1;next} /^\[/{p=0}
+        p && /^[[:space:]]*AllowedIPs[[:space:]]*=/ {
+            sub(/^[^=]*=[[:space:]]*/,"")
+            n=split($0,a,",")
+            for(i=1;i<=n;i++){
+                gsub(/[[:space:]]/,"",a[i])
+                if(a[i]!="" && a[i]!="0.0.0.0/0" && a[i]!="::/0")
+                    system("ip route add "a[i]" dev '"$IF"' 2>/dev/null || true")
+            }
+        }
+    ' "$CONF"
+
+    echo "OK"
+}
+
+stop() {
+    ip link set down dev "$IF" 2>/dev/null || true
+    ip link delete dev "$IF" 2>/dev/null || true
+    echo "OK"
+}
+
+case "$1" in
+    start)   start ;;
+    stop)    stop ;;
+    restart) stop; sleep 1; start ;;
+    *) echo "Usage: $0 {start|stop|restart}"; exit 1 ;;
+esac

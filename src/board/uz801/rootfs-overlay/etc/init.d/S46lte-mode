@@ -1,0 +1,32 @@
+#!/bin/sh
+
+case "$1" in
+    start)
+        # run in background
+        (
+        # wait for modem manager to find the modem
+        i=0
+        while [ $i -lt 30 ]; do
+            mmcli -m 0 > /dev/null 2>&1 && break
+            sleep 1
+            i=$((i+1))
+        done
+
+        # disable the modem, renable it to bring it up fresh and then force it to connect to 4g networks
+        mmcli -m 0 --disable > /dev/null 2>&1 || true
+        sleep 3
+        mmcli -m 0 --enable > /dev/null 2>&1 || true
+        sleep 2
+
+        mmcli -m 0 --set-allowed-modes="4g" > /dev/null 2>&1 || true
+
+        # mmcli -m 0 --3gpp-register-in-operator=<YOUR OPERATOR HERE> > /dev/null 2>&1 || true
+        ) &
+        ;;
+    stop|restart)
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+        ;;
+esac

@@ -1,0 +1,6 @@
+config BR2_PACKAGE_PD_MAPPER
+	bool "pd-mapper"
+	help
+	  pd-mapper - protection domain remapping daemon
+
+	  https://github.com/linux-msm/pd-mapper

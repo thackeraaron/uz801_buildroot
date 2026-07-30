@@ -1,0 +1,8 @@
+config BR2_PACKAGE_GT
+	bool "gt (gadget-tool)"
+	depends on BR2_TOOLCHAIN_HAS_THREADS
+	select BR2_PACKAGE_LIBUSBGX
+	help
+	  Gadget-tool - Linux command line tool for setting USB gadget using configFS
+
+	  https://github.com/linux-usb-gadgets/gt

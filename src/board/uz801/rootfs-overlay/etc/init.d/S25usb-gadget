@@ -1,0 +1,28 @@
+#!/bin/sh
+DEFAULTS=/etc/default/usb-gadget
+GADGET=uz801
+
+[ -f "$DEFAULTS" ] && . "$DEFAULTS"
+PROFILE=${USB_GADGET_PROFILE:-ncm}
+
+case "$1" in
+    start)
+        mount -t configfs none /sys/kernel/config 2>/dev/null || true
+        modprobe libcomposite 2>/dev/null || true
+        gt load --file="/etc/gt/templates/${PROFILE}.scheme" "$GADGET"
+        iptables -t nat -A POSTROUTING -o wg0 -j MASQUERADE
+        ;;
+    stop)
+        gt disable "$GADGET" 2>/dev/null || true
+        gt rm "$GADGET" 2>/dev/null || true
+        iptables -t nat -D POSTROUTING -o wg0 -j MASQUERADE 2>/dev/null || true
+        ;;
+    restart)
+        $0 stop
+        $0 start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+        ;;
+esac

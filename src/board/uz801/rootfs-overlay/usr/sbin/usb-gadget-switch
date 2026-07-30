@@ -1,0 +1,19 @@
+#!/bin/sh
+GADGET=uz801
+TEMPLATES=/etc/gt/templates
+
+PROFILE="$1"
+if [ -z "$PROFILE" ]; then
+    echo "Usage: $0 <profile>"
+    echo "Available: $(ls $TEMPLATES/*.scheme 2>/dev/null | xargs -n1 basename | sed 's/\.scheme//' | tr '\n' ' ')"
+    exit 1
+fi
+
+SCHEME="$TEMPLATES/${PROFILE}.scheme"
+if [ ! -f "$SCHEME" ]; then
+    echo "$0: no scheme for profile '$PROFILE' (looked for $SCHEME)" >&2
+    exit 1
+fi
+
+gt rm -f -r "$GADGET" 2>/dev/null || true
+gt load --file="$SCHEME" "$GADGET"

@@ -1,0 +1,33 @@
+#!/bin/sh
+# load modem/WiFi firmware from the pre-existing partitions then load WCNSS and WCN36XX
+
+case "$1" in
+    start)
+        /usr/sbin/msm-firmware-loader
+
+        # load PIL subsystem
+        modprobe qcom_wcnss_pil 2>/dev/null || true
+
+        # wait for WCNSS amd wcmss_ctrl to do things
+        i=0
+        while [ $i -lt 20 ]; do
+            grep -qr 'wcnss' /sys/bus/platform/devices/*/uevent 2>/dev/null && break
+            sleep 1
+            i=$((i+1))
+        done
+
+        modprobe wcnss_ctrl 2>/dev/null || true
+        sleep 3
+
+        modprobe wcn36xx 2>/dev/null || true
+
+        # wait for wlan0 to appear (NetworkManager got unhappy)
+        i=0
+        while [ $i -lt 15 ]; do
+            [ -d /sys/class/net/wlan0 ] && break
+            sleep 1
+            i=$((i+1))
+        done
+        ;;
+    stop) ;;
+esac

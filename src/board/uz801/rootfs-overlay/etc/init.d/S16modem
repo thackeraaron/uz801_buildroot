@@ -1,0 +1,36 @@
+#!/bin/sh
+RMTFS_PID=/var/run/rmtfs.pid
+PD_MAPPER_PID=/var/run/pd-mapper.pid
+
+case "$1" in
+    start)
+        modprobe qrtr-smd 2>/dev/null || modprobe qrtr 2>/dev/null || true
+
+        start-stop-daemon -S -b -m -p "$RMTFS_PID" \
+            -x /usr/sbin/rmtfs -- -P
+        start-stop-daemon -S -b -m -p "$PD_MAPPER_PID" \
+            -x /usr/sbin/pd-mapper
+
+        for rproc in /sys/class/remoteproc/remoteproc*; do
+            state="$(cat "$rproc/state" 2>/dev/null)"
+            if [ "$state" = "offline" ]; then
+                echo start > "$rproc/state" 2>/dev/null || true
+            fi
+        done
+
+        ;;
+    stop)
+        start-stop-daemon -K -q -p "$RMTFS_PID" 2>/dev/null || true
+        start-stop-daemon -K -q -p "$PD_MAPPER_PID" 2>/dev/null || true
+        rm -f "$RMTFS_PID" "$PD_MAPPER_PID"
+        ;;
+    restart)
+        $0 stop
+        sleep 1
+        $0 start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+        ;;
+esac
